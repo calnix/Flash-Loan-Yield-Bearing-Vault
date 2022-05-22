@@ -82,5 +82,19 @@ We could further implement additional logic here based on the passed data field 
     - returns true on success.
 
 
+# A note on exchange rate:
+```solidity
+
+function getExchangeRate() internal view returns(uint256) {
+        uint256 sharesMinted;
+        return _totalSupply == 0 ? sharesMinted = 1e18 : sharesMinted = (_totalSupply * 1e18) / underlying.balanceOf(address(this));
+    }
+```
+- If _totalSupply == 0, returns 1e18 (1 unit). Thereby abiding by the currency peg of 1:1.
+- Else, return sharesMinted = (_totalSupply * 1e18) / underlying.balanceOf(address(this))
+- This would calculate the shares to be minted as per proportional ownership.
+
+Keep in mind that the ex_rate only begins to float away from its peg when the Vault earns fee from flash loan service.
+This fee is accrued in underlying tokens and increases the denominator: underlying.balanceOf(address(this))
 
 
