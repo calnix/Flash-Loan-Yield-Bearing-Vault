@@ -34,6 +34,7 @@ flashLoan() function executes the flash loan. [A borrower would call on this fun
 1. The receiver address must be a contract implementing the borrower interface. Any arbitrary data may be passed in addition to the call.
 2. The only requirement for the implementation details of the function are that you have to call the onFlashLoan callback from the receiver:
 `require(receiver.onFlashLoan(msg.sender, token, amount, fee, data) == keccak256("ERC3156FlashBorrower.onFlashLoan"), "IERC3156: Callback failed");`
+
 After the callback, the flashLoan function must take the amount + fee token from the receiver, or revert if this is not successful.
 
 #### What happens when flashLoan() is called?
