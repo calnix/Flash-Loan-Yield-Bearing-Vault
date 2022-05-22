@@ -63,9 +63,9 @@ This does three things:
 We could further implement additional logic here based on the passed data field if required. Essentially, what do we do with the flash loan once we have received it.
 
 ### flashBorrow()
-For the borrower to initate the flash loan, we will use flashBorrow().
-This function calculates the fee to be paid in advance for the loan, and approves the amount+fee as an allowance of the lender.
-For the transaction to not revert, inside the onFlashLoan the contract must approve amount + fee of the token to be taken by msg.sender(lender).
+- For the borrower to initate the flash loan, we will use flashBorrow().
+- This function calculates the fee to be paid in advance for the loan, and approves the amount+fee as an allowance of the lender.
+- For the transaction to not revert, inside the onFlashLoan the contract must approve amount + fee of the token to be taken by msg.sender(lender).
 
 ## Flow
 1. Borrower contract executes flashBorrow():
