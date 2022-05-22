@@ -21,6 +21,7 @@ They will be charged a fee of 0.1% for this service. Vault accumulates fees, whi
 Additionally, throught the accumulation of this fee, the underlying deposits of the vault will increase, thereby altering the exchange rate eqn.
 
 > wrapperMinted = underlyingDeposited / underlyingInWrapper * wrapperSupply
+
 > wrapperMinted = (underlyingDeposited * wrapperSupply) / underlyingInWrapper 
 
 # Contracts
@@ -32,7 +33,7 @@ Flash loan lender must implement IERC3156FlashLender -> lender interface must be
 flashLoan() function executes the flash loan. [A borrower would call on this function to execute a flash loan (via flashBorrow)]
 1. The receiver address must be a contract implementing the borrower interface. Any arbitrary data may be passed in addition to the call.
 2. The only requirement for the implementation details of the function are that you have to call the onFlashLoan callback from the receiver:
-> require(receiver.onFlashLoan(msg.sender, token, amount, fee, data) == keccak256("ERC3156FlashBorrower.onFlashLoan"), "IERC3156: Callback failed");
+`require(receiver.onFlashLoan(msg.sender, token, amount, fee, data) == keccak256("ERC3156FlashBorrower.onFlashLoan"), "IERC3156: Callback failed");`
 After the callback, the flashLoan function must take the amount + fee token from the receiver, or revert if this is not successful.
 
 #### What happens when flashLoan() is called?
