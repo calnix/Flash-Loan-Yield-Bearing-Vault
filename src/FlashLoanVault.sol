@@ -5,6 +5,7 @@ import "lib/yield-utils-v2/contracts/mocks/ERC20Mock.sol";
 import "lib/yield-utils-v2/contracts/token/IERC20.sol";
 import "src/IERC3156FlashLender.sol";
 import "src/IERC3156FlashBorrower.sol";
+import {TransferHelper} from "lib/yield-utils-v2/contracts/token/TransferHelper.sol";
 
 /**
 @title Flash Loan Vault
@@ -14,6 +15,9 @@ import "src/IERC3156FlashBorrower.sol";
 */
 
 contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
+
+    ///@dev Attach library for safetransfer methods
+    using TransferHelper for IERC20;
 
     ///@dev The keccak256 hash of "ERC3156FlashBorrower.onFlashLoan"
     bytes32 public constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
@@ -112,8 +116,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         shares = convertToShares(assets);
 
         //transfer DAI from user
-        bool success = underlying.transferFrom(receiver, address(this), assets);
-        require(success, "Deposit failed!");   
+        underlying.safeTransferFrom(receiver, address(this), assets);
 
         //mint yvDAI to user
         bool sent = _mint(receiver, shares);
@@ -142,8 +145,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         burn(owner, shares);
         
         //transfer assets
-        bool success = underlying.transfer(receiver, assets);
-        require(success, "Transfer failed!"); 
+        underlying.safeTransfer(receiver, assets);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
@@ -157,7 +159,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         // MUST support a redeem flow where the shares are burned from owner directly where owner is msg.sender,
         // OR msg.sender has ERC-20 approval over the shares of owner
         if(msg.sender != owner){
-            uint allowedShares = _allowance[owner][receiver] ;
+            uint256 allowedShares = _allowance[owner][receiver] ;
             require(allowedShares >= shares, "Allowance exceeded!");
             _allowance[owner][receiver] = allowedShares - shares;
         }
@@ -166,8 +168,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         burn(owner, shares);
         
         //transfer assets
-        bool success = underlying.transfer(receiver, assets);
-        require(success, "Transfer failed!"); 
+        underlying.safeTransfer(receiver, assets);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
@@ -256,9 +257,8 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     ///@param receiver Address of receiver
     function mint(uint256 shares, address receiver) external returns (uint256 assets) {
         assets = convertToAssets(shares); 
-        bool sent = underlying.transferFrom(msg.sender, address(this), assets);
-        require(sent, "Transfer failed!"); 
-
+        underlying.safeTransferFrom(msg.sender, address(this), assets);
+        
         bool success = _mint(receiver, shares);
         require(success, "Mint failed!"); 
         emit Deposit(msg.sender, receiver, assets, shares);

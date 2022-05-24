@@ -308,9 +308,6 @@ abstract contract StateRateChanged is StateFlashLoan {
         super.setUp();
 
         uint amount = 1000 * 1e18;
-        uint fee = amount * 1000 / 10000;
-        uint vaultBalance = dai.balanceOf(address(vault));
-        
         borrower.flashBorrow(address(dai), amount);
 
     } 

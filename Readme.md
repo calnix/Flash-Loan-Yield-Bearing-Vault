@@ -50,6 +50,7 @@ These two functions are used to set the fee for each token the lender is willing
 Returns the maximum amount of a token the lender is able to offer in a flash loan - dependent on the lender's holdings.
 Also, it is used to tell when a token is not support (or does not have liquidity) by returning a zero.
 
+
 ## FlashLoanBorrower.sol
 Must implement borrower interface: IERC3156FlashBorrower.sol. 
 The borrower interface consists of only of 1 callback function: onFlashLoan(). We will overwrite this in our implementation.
@@ -66,6 +67,7 @@ We could further implement additional logic here based on the passed data field 
 - For the borrower to initate the flash loan, we will use flashBorrow().
 - This function calculates the fee to be paid in advance for the loan, and approves the amount+fee as an allowance of the lender.
 - For the transaction to not revert, inside the onFlashLoan the contract must approve amount + fee of the token to be taken by msg.sender(lender).
+
 
 ## Flow
 1. Borrower contract executes flashBorrow():
