@@ -27,19 +27,18 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     uint256 public constant fee = 1000; 
 
     ///@dev mapping of supported addresses by Flash loan provider
-    mapping(address => bool) public supportedTokens;
+    //mapping(address => bool) public supportedTokens;
 
     ///@dev ERC20 interface specifying token contract functions
-    IERC20 public immutable underlying;    
+    IERC20 public immutable asset;    
 
     ///@notice Creates a new wrapper token for a specified token 
     ///@dev Token will have 18 decimal places as ERC20Mock inherits from ERC20Permit
-    ///@param underlying_ Address of underlying ERC20 token (e.g. DAI)
+    ///@param asset_ Address of underlying ERC20 token (e.g. DAI)
     ///@param tokenName Name of FractionalWrapper tokens 
     ///@param tokenSymbol Symbol of FractionalWrapper tokens (e.g. yvDAI)
-    constructor(IERC20 underlying_, string memory tokenName, string memory tokenSymbol) ERC20Mock(tokenName, tokenSymbol) {
-        underlying = underlying_;
-        supportedTokens[address(underlying_)] = true;
+    constructor(IERC20 asset_, string memory tokenName, string memory tokenSymbol) ERC20Mock(tokenName, tokenSymbol) {
+        asset = asset_;
     }
 
 
@@ -55,7 +54,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     ///@param data A data parameter to be passed on to the `receiver` for any custom use
     ///Note: The flashLoan function MUST include a callback to the onFlashLoan function in a IERC3156FlashBorrower contract
     function flashLoan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes calldata data) external returns(bool) {
-        require(supportedTokens[token], "FlashLender: Unsupported currency");
+        require(token == address(asset), "FlashLender: Unsupported currency");
 
         uint256 _fee = _flashFee(token, amount);
         require(IERC20(token).transfer(address(receiver), amount), "FlashLender: Transfer failed");
@@ -73,7 +72,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     ///@return The fee charged denominated in amount of tokens 
     ///Note: The flashFee function MUST return the fee charged for a loan of amount token. If the token is not supported flashFee MUST revert
     function flashFee(address token, uint256 amount) external view returns (uint256) {
-        require(supportedTokens[token], "FlashLender: Unsupported currency");
+        require(token == address(asset), "FlashLender: Unsupported currency");
         return _flashFee(token, amount);
     }
 
@@ -92,7 +91,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     ///@return The maximum amount of a token that can be borrowed -> max of DAI deposited
     ///Note: The maxFlashLoan function MUST return the maximum loan possible for token. If a token is not currently supported maxFlashLoan MUST return 0, instead of reverting
     function maxFlashLoan(address token) external view returns (uint256) {
-        return supportedTokens[token] ? IERC20(token).balanceOf(address(this)) : 0;
+        return token == address(asset) ? IERC20(token).balanceOf(address(this)) : 0;
     }
 
 
@@ -116,7 +115,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         shares = convertToShares(assets);
 
         //transfer DAI from user
-        underlying.safeTransferFrom(receiver, address(this), assets);
+        asset.safeTransferFrom(receiver, address(this), assets);
 
         //mint yvDAI to user
         bool sent = _mint(receiver, shares);
@@ -136,16 +135,14 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         // MUST support a withdraw flow where the shares are burned from owner directly where owner is msg.sender,
         // OR msg.sender has ERC-20 approval over the shares of owner
         if(msg.sender != owner){
-            uint allowedShares = _allowance[owner][receiver] ;
-            require(allowedShares >= shares, "Allowance exceeded!");
-            _allowance[owner][receiver] = allowedShares - shares;
+            _decreaseAllowance(owner, shares);
         }
 
         //burn wrapped tokens(shares) -> yvDAI 
         burn(owner, shares);
         
         //transfer assets
-        underlying.safeTransfer(receiver, assets);
+        asset.safeTransfer(receiver, assets);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
@@ -159,16 +156,14 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
         // MUST support a redeem flow where the shares are burned from owner directly where owner is msg.sender,
         // OR msg.sender has ERC-20 approval over the shares of owner
         if(msg.sender != owner){
-            uint256 allowedShares = _allowance[owner][receiver] ;
-            require(allowedShares >= shares, "Allowance exceeded!");
-            _allowance[owner][receiver] = allowedShares - shares;
+            _decreaseAllowance(owner, shares);
         }
 
         //burn wrapped tokens(shares) -> yvDAI 
         burn(owner, shares);
         
         //transfer assets
-        underlying.safeTransfer(receiver, assets);
+        asset.safeTransfer(receiver, assets);
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
@@ -180,21 +175,21 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     /// Note: _totalSupply returns a value extended over decimal precision, in this case 18 dp. hence the scaling before divsion.
     function getExchangeRate() internal view returns(uint256) {
         uint256 sharesMinted;
-        return _totalSupply == 0 ? sharesMinted = 1e18 : sharesMinted = (_totalSupply * 1e18) / underlying.balanceOf(address(this));
+        return _totalSupply == 0 ? sharesMinted = 1e18 : sharesMinted = (_totalSupply * 1e18) / asset.balanceOf(address(this));
     }
 
     /// @notice Calculate how much yvDAI user should get based on flaoting exchange rate
-    /// @dev getExchangeRate() returns shares minted per unit of underlying asset deposited; at present moment.
+    /// @dev if _totalSupply is 0, then shares == assets (1:1 peg) | Else, the conversion is as per formulae
     /// @param assets Amount of underlying tokens (assets) to be converted to wrapped tokens (shares)
-    function convertToShares(uint256 assets) internal view returns(uint256 shares){
-        return assets * getExchangeRate() / 1e18;
+    function convertToShares(uint256 assets) internal view returns(uint256){
+        return _totalSupply == 0 ? assets : assets * _totalSupply / asset.balanceOf(address(this));
     }
 
     /// @notice Calculate how much DAI user should get based on floating exchange rate
-    /// @dev getExchangeRate() returns shares minted per unit of underlying asset deposited; at present moment.
+    /// @dev if _totalSupply is 0, then shares == assets (1:1 peg) | Else, the conversion is as per formulae
     /// @param shares Amount of wrapped tokens (shares) to be converted to underlying tokens (assets) 
     function convertToAssets(uint256 shares) internal view returns(uint256 assets){
-        return shares * 1e18 / getExchangeRate();
+        return _totalSupply == 0 ? shares : shares * asset.balanceOf(address(this)) / _totalSupply;
     }
 
     /// @notice Allows an on-chain or off-chain user to simulate the effects of their deposit at the current block, given current on-chain conditions
@@ -215,14 +210,14 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
    
     ///@notice Function returns contract address of underlying token utilized by the vault (e.g. DAI)
     ///@dev MUST be an ERC-20 token contract 
-    function asset() external view returns(address assetTokenAddress){
-        assetTokenAddress = address(underlying);
-    }
+//    function asset() external view returns(address assetTokenAddress){
+//        assetTokenAddress = address(asset);
+//    }
 
     ///@notice Returns total amount of the underlying asset (e.g. DAI) that is “managed” by Vault.
     ///@dev SHOULD include any compounding that occurs from yield, account for any fees that are charged against assets in the Vault
     function totalAssets() external view returns(uint256 totalManagedAssets) {
-        totalManagedAssets = underlying.balanceOf(address(this));
+        totalManagedAssets = asset.balanceOf(address(this));
     }
 
 
@@ -257,7 +252,7 @@ contract FlashLoanVault is ERC20Mock, IERC3156FlashLender {
     ///@param receiver Address of receiver
     function mint(uint256 shares, address receiver) external returns (uint256 assets) {
         assets = convertToAssets(shares); 
-        underlying.safeTransferFrom(msg.sender, address(this), assets);
+        asset.safeTransferFrom(msg.sender, address(this), assets);
         
         bool success = _mint(receiver, shares);
         require(success, "Mint failed!"); 

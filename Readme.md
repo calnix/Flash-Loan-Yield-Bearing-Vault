@@ -40,8 +40,8 @@ After the callback, the flashLoan function must take the amount + fee token from
 #### What happens when flashLoan() is called?
 1. mint the requested amount to the borrower
 2. execute the onFlashLoan callback and verify its return value
-3. check if the repayment is approved
-4. reduce the allowance by the repayment amount and burn it
+3. take repayment (princicpal + fee) from the receiver
+
 
 ### flashfee & _flashfee()
 These two functions are used to set the fee for each token the lender is willing to lend out. In our implementation we will only be lending a single token, DAI, hence the fee calculation is static, reflecting 0.1%.

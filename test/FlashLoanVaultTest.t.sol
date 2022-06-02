@@ -114,7 +114,7 @@ contract StateZeroTest is StateZero {
     }
 
     function testAsset() public {
-        assertTrue(vault.asset() == address(dai));
+        assertTrue(address(vault.asset()) == address(dai));  //had to change @alberto
     }
 
     function testTotalAssets() public {
